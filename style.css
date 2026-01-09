@@ -139,6 +139,11 @@ body {
   color: white;
 }
 
+.journal:hover {
+  background: linear-gradient(145deg, #667eea, #5568d3);
+  color: white;
+}
+
 .emoji {
   font-size: 1.3rem;
   animation: bounce 2s infinite;
