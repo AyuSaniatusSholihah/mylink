@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import html2canvas from 'html2canvas';
-import { savePhoto, getPhoto, clearAllPhotos } from '../db/photoDb';
+import { savePhoto, getPhoto, deletePhoto, clearAllPhotos } from '../db/photoDb';
 import './PhotoSection.css';
 
 const SLOTS = [0, 1, 2];
@@ -45,7 +45,6 @@ const HeartHandDrawn = ({ color = "#5d7255", width = 20, height = 20 }) => (
 
 export default function PhotoSection() {
   const [photos, setPhotos] = useState({ 0: null, 1: null, 2: null });
-  const [rotations, setRotations] = useState({ 0: 0, 1: 0, 2: 0 });
   const [downloading, setDownloading] = useState(false);
   const [toast, setToast] = useState('');
   
@@ -91,17 +90,23 @@ export default function PhotoSection() {
     e.target.value = '';
   }, []);
 
-  const handleRotate = (slot) => {
-    setRotations(prev => ({ ...prev, [slot]: (prev[slot] + 90) % 360 }));
+  const handleResetSlot = async (slot, e) => {
+    e.stopPropagation(); // Avoid triggering frame click
+    stopCamera();
+    await deletePhoto(slot);
+    setPhotos(prev => ({ ...prev, [slot]: null }));
+    if (activeCameraSlot === slot) {
+      setActiveCameraSlot(null);
+    }
+    showToast(`Foto ${slot + 1} diulang! ✨`);
   };
 
   const handleUlang = async () => {
     stopCamera();
     await clearAllPhotos();
     setPhotos({ 0: null, 1: null, 2: null });
-    setRotations({ 0: 0, 1: 0, 2: 0 });
     setActiveCameraSlot(null);
-    showToast('Foto direset! ✨');
+    showToast('Semua foto direset! ✨');
   };
 
   const handleDownload = async () => {
@@ -145,11 +150,10 @@ export default function PhotoSection() {
     setActiveCameraSlot(slot);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 400 }, height: { ideal: 300 } },
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
         audio: false
       });
       streamRef.current = stream;
-      // We wait a tiny bit for the <video> element to mount in JSX
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -163,7 +167,8 @@ export default function PhotoSection() {
   };
 
   // Capture video stream frame directly in-place
-  const capturePhotoForSlot = async (slot) => {
+  const capturePhotoForSlot = async (slot, e) => {
+    e.stopPropagation();
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -183,7 +188,8 @@ export default function PhotoSection() {
   };
 
   // Cancel inline camera shooting
-  const cancelCamera = () => {
+  const cancelCamera = (e) => {
+    e.stopPropagation();
     stopCamera();
     setActiveCameraSlot(null);
   };
@@ -193,202 +199,204 @@ export default function PhotoSection() {
       {toast && <div className="photo-toast">{toast}</div>}
 
       <div className="photo-section__layout">
-        <div className="photo-editor-container">
+        {/* 1. Target Template to capture (includes frames and absolute-positioned controls with html2canvas-ignore) */}
+        <div className="photo-template" ref={templateRef}>
+          <div className="bg-blob bg-blob--top" />
+          <div className="bg-blob bg-blob--bottom" />
+          <div className="bg-dots bg-dots--left" />
+          <div className="bg-dots bg-dots--right" />
           
-          {/* 1. Target Template to capture */}
-          <div className="photo-template" ref={templateRef}>
-            <div className="bg-blob bg-blob--top" />
-            <div className="bg-blob bg-blob--bottom" />
-            <div className="bg-dots bg-dots--left" />
-            <div className="bg-dots bg-dots--right" />
-            
-            <SparkleIcon className="bg-sparkle bg-sparkle--1" />
-            <SparkleIcon className="bg-sparkle bg-sparkle--2" />
-            <SparkleIcon className="bg-sparkle bg-sparkle--3" />
-            
-            <div className="bg-heart bg-heart--1">
-              <HeartHandDrawn color="#ffffff" width={24} height={24} />
-            </div>
+          <SparkleIcon className="bg-sparkle bg-sparkle--1" />
+          <SparkleIcon className="bg-sparkle bg-sparkle--2" />
+          <SparkleIcon className="bg-sparkle bg-sparkle--3" />
+          
+          <div className="bg-heart bg-heart--1">
+            <HeartHandDrawn color="#ffffff" width={24} height={24} />
+          </div>
 
-            {/* FRAME 1 */}
-            <div className="frame-container frame-container--1">
-              <div className="washi-tape washi-tape--grid" />
-              <div 
-                className={`frame-card ${activeCameraSlot === 0 ? 'camera-active' : ''}`} 
-                onClick={() => activeCameraSlot !== 0 && startCameraForSlot(0)}
-              >
-                <div className="frame-card__inner">
-                  {activeCameraSlot === 0 ? (
-                    <video ref={videoRef} autoPlay playsInline muted className="frame-camera-video" />
-                  ) : photos[0] ? (
-                    <img
-                      src={photos[0]}
-                      alt="Foto 1"
-                      className="frame-card__img"
-                      style={{ transform: `rotate(${rotations[0]}deg)` }}
-                    />
-                  ) : (
-                    <div className="frame-card__placeholder">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="#a4b59e">
-                        <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/>
-                        <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
-                      </svg>
-                      <span>CLICK TO CAMERA</span>
-                    </div>
-                  )}
-                </div>
+          {/* FRAME 1 */}
+          <div className="frame-container frame-container--1">
+            <div className="washi-tape washi-tape--grid" />
+            <div 
+              className={`frame-card ${activeCameraSlot === 0 ? 'camera-active' : ''}`} 
+              onClick={() => activeCameraSlot !== 0 && startCameraForSlot(0)}
+            >
+              <div className="frame-card__inner">
+                {activeCameraSlot === 0 ? (
+                  <video ref={videoRef} autoPlay playsInline muted className="frame-camera-video" />
+                ) : photos[0] ? (
+                  <img
+                    src={photos[0]}
+                    alt="Foto 1"
+                    className="frame-card__img"
+                  />
+                ) : (
+                  <div className="frame-card__placeholder">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="#a4b59e">
+                      <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/>
+                      <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                    </svg>
+                    <span>CLICK TO CAMERA</span>
+                  </div>
+                )}
               </div>
-              <div className="ornament-leaf ornament-leaf--1">
-                <LeafStem1 />
-              </div>
-              <div className="ornament-brush ornament-brush--1" />
-              <div className="note-sticker note-sticker--1">
-                <div className="washi-tape-small washi-tape-small--beige" />
-                <div className="note-sticker__content">
-                  <HeartHandDrawn color="#d29685" width={14} height={14} />
-                </div>
+            </div>
+            
+            <div className="ornament-leaf ornament-leaf--1">
+              <LeafStem1 />
+            </div>
+            <div className="ornament-brush ornament-brush--1" />
+            
+            <div className="note-sticker note-sticker--1">
+              <div className="washi-tape-small washi-tape-small--beige" />
+              <div className="note-sticker__content">
+                <HeartHandDrawn color="#d29685" width={14} height={14} />
               </div>
             </div>
 
-            {/* FRAME 2 */}
-            <div className="frame-container frame-container--2">
-              <div className="washi-tape washi-tape--striped" />
-              <div 
-                className={`frame-card ${activeCameraSlot === 1 ? 'camera-active' : ''}`} 
-                onClick={() => activeCameraSlot !== 1 && startCameraForSlot(1)}
-              >
-                <div className="frame-card__inner">
-                  {activeCameraSlot === 1 ? (
-                    <video ref={videoRef} autoPlay playsInline muted className="frame-camera-video" />
-                  ) : photos[1] ? (
-                    <img
-                      src={photos[1]}
-                      alt="Foto 2"
-                      className="frame-card__img"
-                      style={{ transform: `rotate(${rotations[1]}deg)` }}
-                    />
-                  ) : (
-                    <div className="frame-card__placeholder">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="#a4b59e">
-                        <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/>
-                        <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
-                      </svg>
-                      <span>CLICK TO CAMERA</span>
-                    </div>
-                  )}
+            {/* Controls aligned next to Frame 1 */}
+            <div className="frame-controls-wrapper" data-html2canvas-ignore="true">
+              {activeCameraSlot === 0 ? (
+                <div className="slot-active-controls">
+                  <button className="ctrl-action-btn ctrl-action-btn--snap" onClick={(e) => capturePhotoForSlot(0, e)} title="Ambil Foto 📸">📸</button>
+                  <button className="ctrl-action-btn ctrl-action-btn--upload" onClick={() => inputRefs[0].current?.click()} title="Upload 📁">📁</button>
+                  <button className="ctrl-action-btn ctrl-action-btn--cancel" onClick={cancelCamera} title="Batal ❌">❌</button>
                 </div>
-              </div>
-              <div className="ornament-leaf ornament-leaf--2">
-                <LeafStem2 />
-              </div>
-              <div className="note-sticker note-sticker--2">
-                <div className="washi-tape-small washi-tape-small--green" />
-                <div className="note-sticker__content">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#788e6e" strokeWidth="2.5">
-                    <path d="M12 2v20M17 5H7M15 10H9M13 15H11" />
+              ) : photos[0] ? (
+                <button className="frame-retry-btn" onClick={(e) => handleResetSlot(0, e)} title="Ulang Foto Ini 🔄">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M2.5 2v6h6M21.5 22v-6h-6M22 11.5A10 10 0 0 0 3.2 7.2L2.5 8M2 12.5a10 10 0 0 0 18.8 4.3l.7-.8"/>
                   </svg>
-                </div>
-              </div>
-              <div className="ornament-brush ornament-brush--2" />
-            </div>
-
-            {/* FRAME 3 */}
-            <div className="frame-container frame-container--3">
-              <div className="washi-tape washi-tape--polka" />
-              <div 
-                className={`frame-card ${activeCameraSlot === 2 ? 'camera-active' : ''}`} 
-                onClick={() => activeCameraSlot !== 2 && startCameraForSlot(2)}
-              >
-                <div className="frame-inner-heart">
-                  <HeartHandDrawn color="#788e6e" width={14} height={14} />
-                </div>
-                <div className="frame-card__inner">
-                  {activeCameraSlot === 2 ? (
-                    <video ref={videoRef} autoPlay playsInline muted className="frame-camera-video" />
-                  ) : photos[2] ? (
-                    <img
-                      src={photos[2]}
-                      alt="Foto 3"
-                      className="frame-card__img"
-                      style={{ transform: `rotate(${rotations[2]}deg)` }}
-                    />
-                  ) : (
-                    <div className="frame-card__placeholder">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="#a4b59e">
-                        <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/>
-                        <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
-                      </svg>
-                      <span>CLICK TO CAMERA</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="ornament-leaf ornament-leaf--3">
-                <LeafStem1 />
-              </div>
-              <div className="ornament-brush ornament-brush--3" />
-              <div className="note-sticker note-sticker--3">
-                <div className="washi-tape-small washi-tape-small--beige" />
-                <div className="note-sticker__content">
-                  <HeartHandDrawn color="#d29685" width={14} height={14} />
-                </div>
-              </div>
+                </button>
+              ) : null}
             </div>
           </div>
 
-          {/* 2. Floating controls overlay on the right (NOT captured) */}
-          <div className="controls-overlay">
-            {SLOTS.map((slot) => {
-              const isCamActive = activeCameraSlot === slot;
-              return (
-                <div key={slot} className="slot-control-wrapper">
-                  {isCamActive ? (
-                    <div className="slot-active-controls">
-                      <button 
-                        className="ctrl-action-btn ctrl-action-btn--snap"
-                        onClick={() => capturePhotoForSlot(slot)}
-                        title="Ambil Foto 📸"
-                      >
-                        📸
-                      </button>
-                      <button 
-                        className="ctrl-action-btn ctrl-action-btn--upload"
-                        onClick={() => inputRefs[slot].current?.click()}
-                        title="Pilih File dari Galeri 📁"
-                      >
-                        📁
-                      </button>
-                      <button 
-                        className="ctrl-action-btn ctrl-action-btn--cancel"
-                        onClick={cancelCamera}
-                        title="Batal ❌"
-                      >
-                        ❌
-                      </button>
-                    </div>
-                  ) : (
-                    <button 
-                      className="frame-rotate-btn" 
-                      onClick={() => handleRotate(slot)} 
-                      title="Putar Foto"
-                      disabled={!photos[slot]}
-                      style={{ opacity: photos[slot] ? 1 : 0.4 }}
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-                      </svg>
-                    </button>
-                  )}
+          {/* FRAME 2 */}
+          <div className="frame-container frame-container--2">
+            <div className="washi-tape washi-tape--striped" />
+            <div 
+              className={`frame-card ${activeCameraSlot === 1 ? 'camera-active' : ''}`} 
+              onClick={() => activeCameraSlot !== 1 && startCameraForSlot(1)}
+            >
+              <div className="frame-card__inner">
+                {activeCameraSlot === 1 ? (
+                  <video ref={videoRef} autoPlay playsInline muted className="frame-camera-video" />
+                ) : photos[1] ? (
+                  <img
+                    src={photos[1]}
+                    alt="Foto 2"
+                    className="frame-card__img"
+                  />
+                ) : (
+                  <div className="frame-card__placeholder">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="#a4b59e">
+                      <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/>
+                      <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                    </svg>
+                    <span>CLICK TO CAMERA</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="ornament-leaf ornament-leaf--2">
+              <LeafStem2 />
+            </div>
+            <div className="note-sticker note-sticker--2">
+              <div className="washi-tape-small washi-tape-small--green" />
+              <div className="note-sticker__content">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#788e6e" strokeWidth="2.5">
+                  <path d="M12 2v20M17 5H7M15 10H9M13 15H11" />
+                </svg>
+              </div>
+            </div>
+            <div className="ornament-brush ornament-brush--2" />
+
+            {/* Controls aligned next to Frame 2 */}
+            <div className="frame-controls-wrapper" data-html2canvas-ignore="true">
+              {activeCameraSlot === 1 ? (
+                <div className="slot-active-controls">
+                  <button className="ctrl-action-btn ctrl-action-btn--snap" onClick={(e) => capturePhotoForSlot(1, e)} title="Ambil Foto 📸">📸</button>
+                  <button className="ctrl-action-btn ctrl-action-btn--upload" onClick={() => inputRefs[1].current?.click()} title="Upload 📁">📁</button>
+                  <button className="ctrl-action-btn ctrl-action-btn--cancel" onClick={cancelCamera} title="Batal ❌">❌</button>
                 </div>
-              );
-            })}
+              ) : photos[1] ? (
+                <button className="frame-retry-btn" onClick={(e) => handleResetSlot(1, e)} title="Ulang Foto Ini 🔄">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M2.5 2v6h6M21.5 22v-6h-6M22 11.5A10 10 0 0 0 3.2 7.2L2.5 8M2 12.5a10 10 0 0 0 18.8 4.3l.7-.8"/>
+                  </svg>
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* FRAME 3 */}
+          <div className="frame-container frame-container--3">
+            <div className="washi-tape washi-tape--polka" />
+            <div 
+              className={`frame-card ${activeCameraSlot === 2 ? 'camera-active' : ''}`} 
+              onClick={() => activeCameraSlot !== 2 && startCameraForSlot(2)}
+            >
+              <div className="frame-inner-heart">
+                <HeartHandDrawn color="#788e6e" width={14} height={14} />
+              </div>
+              <div className="frame-card__inner">
+                {activeCameraSlot === 2 ? (
+                  <video ref={videoRef} autoPlay playsInline muted className="frame-camera-video" />
+                ) : photos[2] ? (
+                  <img
+                    src={photos[2]}
+                    alt="Foto 3"
+                    className="frame-card__img"
+                  />
+                ) : (
+                  <div className="frame-card__placeholder">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="#a4b59e">
+                      <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/>
+                      <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                    </svg>
+                    <span>CLICK TO CAMERA</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="ornament-leaf ornament-leaf--3">
+              <LeafStem1 />
+            </div>
+            <div className="ornament-brush ornament-brush--3" />
+            
+            <div className="note-sticker note-sticker--3">
+              <div className="washi-tape-small washi-tape-small--beige" />
+              <div className="note-sticker__content">
+                <HeartHandDrawn color="#d29685" width={14} height={14} />
+              </div>
+            </div>
+
+            {/* Controls aligned next to Frame 3 */}
+            <div className="frame-controls-wrapper" data-html2canvas-ignore="true">
+              {activeCameraSlot === 2 ? (
+                <div className="slot-active-controls">
+                  <button className="ctrl-action-btn ctrl-action-btn--snap" onClick={(e) => capturePhotoForSlot(2, e)} title="Ambil Foto 📸">📸</button>
+                  <button className="ctrl-action-btn ctrl-action-btn--upload" onClick={() => inputRefs[2].current?.click()} title="Upload 📁">📁</button>
+                  <button className="ctrl-action-btn ctrl-action-btn--cancel" onClick={cancelCamera} title="Batal ❌">❌</button>
+                </div>
+              ) : photos[2] ? (
+                <button className="frame-retry-btn" onClick={(e) => handleResetSlot(2, e)} title="Ulang Foto Ini 🔄">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M2.5 2v6h6M21.5 22v-6h-6M22 11.5A10 10 0 0 0 3.2 7.2L2.5 8M2 12.5a10 10 0 0 0 18.8 4.3l.7-.8"/>
+                  </svg>
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
 
         {/* Action Buttons */}
         <div className="photo-actions">
           <button className="btn-ulang" onClick={handleUlang}>
-            Ulang
+            Ulang Semua
           </button>
           <button className="btn-download" onClick={handleDownload} disabled={downloading}>
             {downloading ? '...' : 'Download'}

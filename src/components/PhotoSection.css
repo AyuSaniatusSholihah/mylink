@@ -38,24 +38,18 @@
   width: 100%;
 }
 
-/* Editor container with overflow: visible */
-.photo-editor-container {
-  position: relative;
-  width: 250px;
-}
-
 /* ─── TEMPLATE CONTAINER (The card to capture) ─── */
 .photo-template {
   position: relative;
-  width: 250px;
-  padding: 40px 20px;
+  width: 270px; /* Slightly wider to accommodate side-aligned retry/controls inside template box */
+  padding: 40px 25px;
   background-color: #9fb8ad;
   border-radius: 20px;
   box-shadow: 0 10px 30px rgba(135,160,148,0.3);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: 28px;
   overflow: hidden;
   user-select: none;
 }
@@ -129,19 +123,20 @@
   opacity: 0.6;
 }
 
-/* ─── FRAME CONTAINER ─── */
+/* ─── FRAME CONTAINER (Aspect ratio matches photo stream) ─── */
 .frame-container {
   position: relative;
   width: 180px;
-  height: 150px;
+  min-height: 135px; /* Default aspect ratio 4:3 placeholder height */
   z-index: 2;
+  margin-right: 25px; /* Leave space on the right side for absolute controls */
 }
 
 /* ─── THE CARD ─── */
 .frame-card {
   position: relative;
   width: 100%;
-  height: 100%;
+  height: auto; /* Adapts to photo/video aspect ratio */
   background: #fdfaf7;
   border-radius: 12px;
   border: 1px solid #cfcec4;
@@ -159,7 +154,8 @@
 
 .frame-card__inner {
   width: 100%;
-  height: 100%;
+  height: auto;
+  min-height: 121px; /* Adapts automatically */
   border-radius: 8px;
   border: 1px dashed #d6d3c9;
   background: #fdfaf7;
@@ -174,27 +170,29 @@
   transform: translateY(-2px);
 }
 
+/* Photo and Video stretch dynamically to preserve captured resolution */
 .frame-card__img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  display: block;
+  object-fit: contain;
   border-radius: 6px;
-  transition: transform 0.4s ease;
 }
 
-/* Inline live video stream styling */
 .frame-camera-video {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  display: block;
+  object-fit: contain;
   border-radius: 6px;
-  transform: scaleX(-1); /* Mirror effect */
+  /* NO mirror scaleX(-1) transform */
 }
 
 .frame-card__placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   color: #a4b59e;
   font-family: 'Nunito', sans-serif;
@@ -202,6 +200,8 @@
   font-weight: 800;
   letter-spacing: 0.05em;
   text-align: center;
+  min-height: 121px;
+  width: 100%;
 }
 
 /* Handdrawn heart inside frame top-right */
@@ -413,33 +413,23 @@
   transform: rotate(-5deg);
 }
 
-/* ─── CONTROLS OVERLAY (FLOATING BUTTONS ON THE RIGHT) ─── */
-.controls-overlay {
+/* ─── CONTROLS WRAPPER (Absolute positioned relative to frame container) ─── */
+.frame-controls-wrapper {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  right: -55px; /* Aligned nicely to the right */
-  width: 45px;
+  right: -36px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
-  align-items: center;
-  pointer-events: none;
-  z-index: 10;
-  padding: 40px 0;
-}
-
-.slot-control-wrapper {
-  pointer-events: auto;
-  height: 150px; /* Exact height of frame-container for alignment */
-  display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 10;
 }
 
-.frame-rotate-btn {
-  width: 30px;
-  height: 30px;
+.frame-retry-btn {
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   border: 1px solid #ebdcd0;
   background-color: #fdfaf7;
@@ -452,17 +442,17 @@
   transition: all 0.2s ease;
 }
 
-.frame-rotate-btn:hover {
+.frame-retry-btn:hover {
   background-color: #788e6e;
   color: #fdfaf7;
-  transform: scale(1.1) rotate(45deg);
+  transform: scale(1.15) rotate(-45deg);
 }
 
-.frame-rotate-btn:active {
+.frame-retry-btn:active {
   transform: scale(0.95);
 }
 
-/* Inline camera controls column */
+/* Inline camera active controls row */
 .slot-active-controls {
   display: flex;
   flex-direction: column;
@@ -471,8 +461,8 @@
 }
 
 .ctrl-action-btn {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: 1px solid #ebdcd0;
   background-color: #fdfaf7;
@@ -481,7 +471,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   transition: all 0.2s ease;
 }
 
