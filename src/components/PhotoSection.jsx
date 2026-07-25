@@ -199,7 +199,7 @@ export default function PhotoSection() {
       {toast && <div className="photo-toast">{toast}</div>}
 
       <div className="photo-section__layout">
-        {/* 1. Target Template to capture (includes frames and absolute-positioned controls with html2canvas-ignore) */}
+        {/* 1. Target Template to capture */}
         <div className="photo-template" ref={templateRef}>
           <div className="bg-blob bg-blob--top" />
           <div className="bg-blob bg-blob--bottom" />
@@ -225,10 +225,9 @@ export default function PhotoSection() {
                 {activeCameraSlot === 0 ? (
                   <video ref={videoRef} autoPlay playsInline muted className="frame-camera-video" />
                 ) : photos[0] ? (
-                  <img
-                    src={photos[0]}
-                    alt="Foto 1"
-                    className="frame-card__img"
+                  <div
+                    className="frame-card__photo-bg"
+                    style={{ backgroundImage: `url(${photos[0]})` }}
                   />
                 ) : (
                   <div className="frame-card__placeholder">
@@ -283,10 +282,9 @@ export default function PhotoSection() {
                 {activeCameraSlot === 1 ? (
                   <video ref={videoRef} autoPlay playsInline muted className="frame-camera-video" />
                 ) : photos[1] ? (
-                  <img
-                    src={photos[1]}
-                    alt="Foto 2"
-                    className="frame-card__img"
+                  <div
+                    className="frame-card__photo-bg"
+                    style={{ backgroundImage: `url(${photos[1]})` }}
                   />
                 ) : (
                   <div className="frame-card__placeholder">
@@ -345,10 +343,9 @@ export default function PhotoSection() {
                 {activeCameraSlot === 2 ? (
                   <video ref={videoRef} autoPlay playsInline muted className="frame-camera-video" />
                 ) : photos[2] ? (
-                  <img
-                    src={photos[2]}
-                    alt="Foto 3"
-                    className="frame-card__img"
+                  <div
+                    className="frame-card__photo-bg"
+                    style={{ backgroundImage: `url(${photos[2]})` }}
                   />
                 ) : (
                   <div className="frame-card__placeholder">
