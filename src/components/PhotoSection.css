@@ -184,7 +184,6 @@
   height: 100%;
   object-fit: cover;
   border-radius: 6px;
-  transform: scaleX(-1); /* Mirror live feed for posing */
 }
 
 .frame-card__placeholder {
